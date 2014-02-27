@@ -1,0 +1,13 @@
+OASISFormat: 0.4
+Name:        Umap
+Version:     0.5
+Synopsis:    Open records implemented as map over universal type
+Authors:     octachron
+License:     LGPL-3
+Plugins:     META (0.4)
+
+Library "Umap"
+  Path:       .
+  BuildTools: ocamlbuild
+  Modules:    Umap
+  
