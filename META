@@ -1,11 +1,11 @@
 # OASIS_START
-# DO NOT EDIT (digest: e4290261f710363c2e33fef367ad6d47)
-version = "0.5"
+# DO NOT EDIT (digest: 3811ab71cc2bb70caeedef39b49c307e)
+version = "0.6"
 description = "Open records implemented as map over universal type"
-archive(byte) = "Umap.cma"
-archive(byte, plugin) = "Umap.cma"
-archive(native) = "Umap.cmxa"
-archive(native, plugin) = "Umap.cmxs"
-exists_if = "Umap.cma"
+archive(byte) = "Orec.cma"
+archive(byte, plugin) = "Orec.cma"
+archive(native) = "Orec.cmxa"
+archive(native, plugin) = "Orec.cmxs"
+exists_if = "Orec.cma"
 # OASIS_STOP
 
