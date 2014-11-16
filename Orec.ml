@@ -6,10 +6,10 @@ module type UnivS=sig
 end
 
 module Universal:UnivS=struct
-  type t=exn
+  type t= ..
   let specialize (type u) ()=
     let module S=struct
-    exception E of u
+    type t += E of u
     let inj x = E x
     let proj = function E x -> x | _-> raise Nothing
     end
@@ -19,10 +19,10 @@ end
 
 
 
+
 type elt =  Universal.t
 
-module Id=struct
-
+module Id ()=struct
 module type Base = sig type p end
 
 
@@ -49,7 +49,10 @@ module type Sig=
 		include(Base)
 		val s:p-> t -> t
 		val set:t -> p -> t
-		val get: t -> p 
+		val get_e: t -> p 
+		val get : t -> p option
+		val map : (p->'a) -> t -> 'a option
+		val get_d : p -> t -> p 
 	end 
 
 module Property(T:Base)=
@@ -59,7 +62,10 @@ struct
     let inj, proj = Universal.specialize()  
     let s value orec= M.add id (inj value) orec
     let set orec value = s value orec
-    let get orec = proj @@ M.find id orec     
+    let get_e orec = proj @@ M.find id orec
+    let get orec = try Some( get_e orec ) with Not_found -> None
+    let map f orec = match get orec with None -> None | Some x -> Some (f x)
+    let get_d default orec = try get_e orec with Not_found -> default      
 end
 
 
@@ -74,12 +80,12 @@ end
 module NameMap=Map.Make(NameOrdered)
 
 
-module Named=struct
+module Named ()=struct
 
 module type Base= 
 sig	
 	val name : string
-	include Id.Base
+	type p
 end
 
 module N=NameMap
@@ -92,28 +98,33 @@ module type Sig=
 			include(Base)
 			val s:p-> t -> t
 			val set:t -> p -> t
-			val get: t -> p 
+			val get_e: t -> p 
+			val get: t -> p option
+			val map: (p->'a) -> t -> 'a option
+			val get_d: p -> t -> p 
 	end 
 
 module Property(T:Base)=struct
-	include(T)
-	let inj, proj = Universal.specialize()  
-	let s value orec= N.add name (inj value) orec
-	let set orec value = s value orec
-	let get orec = proj @@ N.find name orec     
+  include(T)
+  let inj, proj = Universal.specialize()  
+  let s value orec= N.add name (inj value) orec
+  let set orec value = s value orec
+  let get_e orec = proj @@ N.find name orec
+  let get orec = try Some( get_e orec ) with Not_found -> None
+  let map f orec = match get orec with None -> None | Some x -> Some (f x)
+  let get_d default orec = try get_e orec with Not_found -> default 
 end
 end
 
-module Repr=struct
-
-
+module Repr ()=struct
 module N=NameMap
 type t=elt N.t
 let empty=N.empty
 
 
 module type Base = sig 
-	include(Named.Base)
+	type p
+	val name:string
 	type rpr
 	val repr : p -> rpr
 	val specify: rpr -> p
@@ -126,11 +137,17 @@ sig
 	include(Base)
 	val s:p-> t -> t
 	val set:t -> p -> t
-	val get: t -> p 
+	val get_e: t -> p 
+	val get : t -> p option
+	val map : (p->'a) -> t -> 'a option
+	val get_d : p -> t -> p 
 	module Repr:sig
 		val s:rpr-> t -> t
 		val set:t -> rpr -> t
-		val get: t -> rpr 			
+		val get_e: t -> rpr 
+		val get : t -> rpr option
+		val map : (rpr->'a) -> t -> 'a option
+		val get_d : rpr -> t -> rpr 			
 	end
 end 
 
@@ -138,15 +155,23 @@ end
 
 module Property(T:Base)=struct
 	include T
-	let inj, proj = Universal.specialize()  
-	let s value orec= N.add name (inj value) orec
-	let set orec value = s value orec
-	let get orec = proj @@ N.find name orec     
-	module Repr=struct
-		let s repr orec = N.add name (inj @@ specify repr) orec
-		let set orec repr= s repr orec
-		let get orec= repr @@ get  orec  
-	end 
+  let inj, proj = Universal.specialize()  
+  let s value orec= N.add name (inj value) orec
+  let set orec value = s value orec
+  let get orec = proj @@ N.find name orec
+  let get_e orec = proj @@ N.find name orec
+  let get orec = try Some( get_e orec ) with Not_found -> None
+  let map f orec = match get orec with None -> None | Some x -> Some (f x)
+  let get_d default orec = try get_e orec with Not_found -> default   
+	
+  module Repr=struct
+    let s repr orec = N.add name (inj @@ specify repr) orec
+    let set orec repr= s repr orec
+    let get_e orec= repr @@ get_e orec
+    let get orec = try Some( get_e orec ) with Not_found -> None
+    let map f orec = match get orec with None -> None | Some x -> Some (f x)
+    let get_d default orec = try get_e orec with Not_found -> default   
+   end 
 end
 
 end
