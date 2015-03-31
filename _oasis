@@ -9,5 +9,6 @@ Plugins:     META (0.4)
 Library "Orec"
   Path:       .
   BuildTools: ocamlbuild
+  BuildDepends: ppx_indexop
   Modules:    Orec
   
