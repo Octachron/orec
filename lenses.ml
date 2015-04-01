@@ -12,12 +12,18 @@ type ( 't, 'ty,'tyg, 'perm )  lens2 =
  and ('t,'ty,'tyg) r_lens = { kind: ('ty,'tyg) get_kind; get : 't -> 'tyg }
  and ('t,'ty,'tyg) ru_lens = { kind: ('ty,'tyg) get_kind; get : 't -> 'tyg; update: 't -> 'ty -> 't }
  and ('t,'ty,'tyg) ruw_lens = { kind: ('ty,'tyg) get_kind; get : 't -> 'tyg; update: 't -> 'ty -> 't; write: 't -> 'ty -> unit }
-		    
+
+
+		  
+				
 type ('t,'ty,'get_ret ) lens = {
   set : 'ty -> 't  -> 't; 
   get : 't -> 'get_ret
 }
 
+
+
+				 
 type 'ty getter = Nil_getter
 type setter = Nil_setter
 		  

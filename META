@@ -1,7 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3811ab71cc2bb70caeedef39b49c307e)
+# DO NOT EDIT (digest: 44ed2aa4d6610acf59d7bcd197ca4ad9)
 version = "0.6"
 description = "Open records implemented as map over universal type"
+requires = "ppx_indexop"
 archive(byte) = "Orec.cma"
 archive(byte, plugin) = "Orec.cma"
 archive(native) = "Orec.cmxa"
