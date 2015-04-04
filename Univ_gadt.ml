@@ -1,13 +1,14 @@
 type _ type_id = ..
 exception Type_non_equal
 		   
-module type Type = sig type t end
 	       
 module type Id = sig
     type t
     type _ type_id += Id : t type_id
   end
 
+type 'a type_carrier = T 
+		   
 type 'a witness = ( module Id with type t = 'a )
 
 type (_,_) eq = Proof : ('a,'a) eq 
@@ -40,7 +41,7 @@ let extract_exn: type a. a witness -> binding -> a =  fun  witness (B (witness',
   | None -> raise Type_non_equal 
 
 	      
-let create (type u) (module T : Type with type t = u ) : u witness  =
+let create (type u) () : u witness  =
   let module K = struct
     type t = u
     type _ type_id += Id : t type_id
