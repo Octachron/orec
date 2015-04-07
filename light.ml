@@ -1,24 +1,31 @@
 module U = Univ_gadt
 type 'a witness = 'a U.witness
 type elt = U.binding
+
+(* type carrier: used later for avoiding weakly polymorphic type witness *) 
 type 'a ft = T
-	     
+
+(* Phantom type brand for immutable and mutable field *)	       
 type mut = Nil_mutable
 type imm = Nil_immutable
 
+(* Phantom type brand for const updater ( field ^= const ) and function updater 
+field ^= f (field value)  *)	     
 type lt_fn = Nil_lt_fn
 type fn = lt_fn
 type const = Nil_const
 
+(* Phantom type brand for discriminating updater and getter *) 	       
 type 'brand getter = Nil_getter
 type  'kind updater = Nil_updater
 
+(* Storage type: is the type 'ty stored directly or through a reference *)	     
 type ('ty,'fy, 'brand) storage =
   | Imm : ('a,'a,imm) storage
   | Mut : ('a, 'a ref,mut) storage
 
-	     
-module Aux_types = struct	     
+(* Bijection auxiliary function and type *)	     
+module Bijection = struct	     
 
 type ('a,'b) bijection = { to_ : 'a -> 'b ; from : 'b -> 'a }
 
@@ -32,11 +39,26 @@ let ( <*> ) {to_; from} source =
 			   
 end
 
+(* Utility option monad functions *)			      
+    let ( |>? ) x f = match x with
+      | Some x -> Some ( f x )
+      | None -> None
+
+    let ( >>? ) x f = match x with
+      | Some x -> f x 
+      | None -> ()
+
+		     
+(* Key type : 
+ * 'ty the type of the key 
+ * 'tys the type of the stored value 
+ * 'brand : storage brand either imm or mut 
+ *)  		     
 type ('ty,'tys, 'brand) key = { witness : 'tys witness; storage: ('ty,'tys,'brand) storage }
 
-					  
+(* Namespace signature *)					  
 module type Namespace_sig = sig
-    include (module type of Aux_types) 
+    include (module type of Bijection) 
     (** The type of record within the namespace *)
     type t
 
@@ -74,125 +96,117 @@ module type Namespace_sig = sig
     (** Operator version of [transmute] *)
     val ( @: ) :    ( 'brand getter, 'ty option ) field_action -> ('ty,'vty) bijection ->  ( 'brand getter, 'vty option) field_action 
 
-    val map : ('ty -> 'ty)  -> ( 'brand getter, 'ty option) field_action -> t -> t									      
-															      
-  end
+    val map : ('ty -> 'ty)  -> ( 'brand getter, 'ty option) field_action -> t -> t   end
 
+(* Namespace() generates a new module with abstract open record  *)		     
 module Namespace() : Namespace_sig =
   struct
-    include(Aux_types)
-    
-module M= Map.Make(
-	      struct
-		type t=int
-		let compare:int -> int -> int = compare
-	      end)
+    (* Including bijection function to lighten use of the namespace *)
+    include(Bijection)
+
+    (* Underlying type of the open record *)
+    module M= Map.Make(
+		  struct
+		    type t=int
+		    let compare:int -> int -> int = compare
+		  end)
 
 
-type t= elt M.t
-		 
-let empty : t = M.empty
+    type t= elt M.t
+    let empty : t = M.empty
 
+    let find_exn key orec =  M.find (U.id key) orec |> U.extract_exn key
 
-let find_exn key orec =  M.find (U.id key) orec |> U.extract_exn key
+    let find key orec = match find_exn key orec with
+      | x -> Some x
+      | exception Not_found -> None
 
-let find key orec = match find_exn key orec with
-  | x -> Some x
-  | exception Not_found -> None
-
-let add key val_ orec = M.add (U.id key) (U.B (key,val_) ) orec
-
-
+    let add key val_ orec = M.add (U.id key) (U.B (key,val_) ) orec
  			 
-		   
-type ('kind, 'ret)  field_action =
-  | Get : ('ty,'tys,'brand) key -> (  'brand getter, 'ty option ) field_action
-  | Indirect_get : ('ty,'tys,'brand) key * ('ty, 'vty) bijection -> (  'brand getter, 'vty option) field_action   
-  | Update : ('ty,'tys,'brand) key * 'ty -> ('kind updater, t) field_action
-  | Fn_update: ('ty,'tys,'brand) key * ('ty->'ty) -> (fn updater, t) field_action
+    (* Field action : either  getter or setter associated to a given key  *) 	     
+    type ('info , 'ret)  field_action =
+      | Get : ('ty,'tys,'brand) key -> (  'brand getter, 'ty option ) field_action
+      | Indirect_get : ('ty,'tys,'brand) key * ('ty, 'vty) bijection -> (  'brand getter, 'vty option) field_action   
+      | Update : ('ty,'tys,'brand) key * 'ty -> ('kind updater, t) field_action
+      | Fn_update: ('ty,'tys,'brand) key * ('ty->'ty) -> (fn updater, t) field_action
 
-let (^=) : type ty brand ret . ( brand getter, ty option ) field_action -> ty -> ('a updater , t ) field_action =
-    fun field_action x -> match field_action with
-			 | Get key -> Update(key,x)
-			 | Indirect_get (key,bij) -> Update(key, bij.from x)   
+    let (^=) : type ty brand ret . ( brand getter, ty option ) field_action -> ty -> ('a updater , t ) field_action =
+	fun field_action x -> match field_action with
+			      | Get key -> Update(key,x)
+			      | Indirect_get (key,bij) -> Update(key, bij.from x)   
+								
+    let ( |= ) : type ty brand ret . ( brand getter, ty option ) field_action -> (ty->ty) -> ('a updater , t ) field_action =
+	fun field_action f -> match field_action with
+			      | Get key -> Fn_update(key,f)
+			      | Indirect_get (key,bij) -> Fn_update(key,fun x ->   x |> bij.to_ |> f |>  bij.from )   
 
-let ( |= ) : type ty brand ret . ( brand getter, ty option ) field_action -> (ty->ty) -> ('a updater , t ) field_action =
-    fun field_action f -> match field_action with
-			 | Get key -> Fn_update(key,f)
-			 | Indirect_get (key,bij) -> Fn_update(key,fun x ->   x |> bij.to_ |> f |>  bij.from )   
-							      
-let copy field = field |= (fun x -> x)
-							      
-let ( |>? ) x f = match x with
-  | Some x -> Some ( f x )
-  | None -> None
+    (* performs a copy of a mutable field. Copying an immutable would be pointless *)
+    let copy field = field |= (fun x -> x)
+		
+    (* Goes from the stored type 'tys to the core type *)  
+    let deref: type ty tys brand. (ty,tys,brand) storage -> tys -> ty = fun storage val_ ->
+      match storage with
+      | Mut -> !val_
+      | Imm -> val_
 
-let ( >>? ) x f = match x with
-  | Some x -> f x 
-  | None -> ()
-	      
-let deref: type ty tys brand. (ty,tys,brand) storage -> tys -> ty = fun storage val_ ->
-  match storage with
-  | Mut -> !val_
-  | Imm -> val_
-
-let ref_: type ty tys brand. (ty,tys,brand) storage -> ty -> tys = fun storage val_ ->
-  match storage with
-  | Mut -> ref val_
-  | Imm -> val_
+    (* ref_ st · deref st = identity *)
+    let ref_: type ty tys brand. (ty,tys,brand) storage -> ty -> tys = fun storage val_ ->
+      match storage with
+      | Mut -> ref val_
+      | Imm -> val_
 	     
-	     
-let find_key key orec = find key.witness orec |>? deref key.storage
-let add_key key val_ orec = add key.witness (ref_ key.storage val_) orec 
+    let find_key key orec = find key.witness orec |>? deref key.storage
+    let add_key key val_ orec = add key.witness (ref_ key.storage val_) orec 
 
-let update_key key f orec =
-  match find_key key orec with
-  | Some x -> add_key key x orec
-  | None -> orec
+    let update_key key f orec =
+      match find_key key orec with
+      | Some x -> add_key key x orec
+      | None -> orec
 				
-let update :('a updater, t) field_action -> t -> t = fun field_action orec -> 				
-  match field_action with
-  | Update (key,x) -> add_key key x orec
-  | Fn_update(key,f) -> update_key key f orec
+    let update :('a updater, t) field_action -> t -> t = fun field_action orec -> 				
+      match field_action with
+      | Update (key,x) -> add_key key x orec
+      | Fn_update(key,f) -> update_key key f orec
     
-let%indexop get: type kind ret. t -> (kind,ret) field_action -> ret = fun orec ->  function
-  | Get key ->  find_key key orec
-  | Indirect_get (witness, bijection) -> find_key witness orec |>? bijection.to_
-  | Update (key,x) -> add_key key x orec
-  | Fn_update(key,f) -> update_key key f orec
-and get_2: t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> t = fun orec field1 field2 ->
-  orec |> update field1 |> update field2
-and get_3: t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action ->  t =
-  fun orec field1 field2 field3 ->
-  orec |> update field1 |> update field2 |> update field3
-and get_n: t -> (lt_fn updater, t ) field_action array -> t = fun orec arr ->
-  Array.fold_left (fun orec x -> update x orec) orec arr
-and set : type ty. t -> ( mut getter , ty option ) field_action -> ty -> unit = fun orec field x ->
-  match field with
-  | Get {witness; storage=Mut } -> find witness orec >>? fun r -> r := x 
-  | Indirect_get ( {witness;storage=Mut}, bijection ) -> find witness orec >>? fun r -> r  := bijection.from x
+    let%indexop get: type kind ret. t -> (kind,ret) field_action -> ret = fun orec ->
+      function
+      | Get key ->  find_key key orec
+      | Indirect_get (witness, bijection) -> find_key witness orec |>? bijection.to_
+      | Update (key,x) -> add_key key x orec
+      | Fn_update(key,f) -> update_key key f orec
+    and get_2: t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> t = fun orec field1 field2 ->
+      orec |> update field1 |> update field2
+    and get_3: t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action ->  t =
+      fun orec field1 field2 field3 ->
+      orec |> update field1 |> update field2 |> update field3
+    and get_n: t -> (lt_fn updater, t ) field_action array -> t = fun orec arr ->
+      Array.fold_left (fun orec x -> update x orec) orec arr
+    and set : type ty. t -> ( mut getter , ty option ) field_action -> ty -> unit = fun orec field x ->
+      match field with
+      | Get {witness; storage=Mut } -> find witness orec >>? fun r -> r := x 
+      | Indirect_get ( {witness;storage=Mut}, bijection ) -> find witness orec >>? fun r -> r  := bijection.from x
 					 
 
 							     
 
-let map f field orec = match orec.{field} with Some x -> orec.{field ^= f x} | None -> orec   
+    let map f field orec = match orec.{field} with Some x -> orec.{field ^= f x} | None -> orec   
 			 
 
-let transmute: type ty brand. ( brand getter, ty option ) field_action -> (ty,'vty) bijection -> ( brand getter, 'vty option) field_action =
-    fun action_field bijection ->  match action_field with
-				   | Get witness -> Indirect_get (witness,bijection)
-				   | Indirect_get (witness, bijection' ) -> Indirect_get (witness, bijection <*> bijection' ) 
+    let transmute: type ty brand. ( brand getter, ty option ) field_action -> (ty,'vty) bijection -> ( brand getter, 'vty option) field_action =
+	fun action_field bijection ->  match action_field with
+				       | Get witness -> Indirect_get (witness,bijection)
+				       | Indirect_get (witness, bijection' ) -> Indirect_get (witness, bijection <*> bijection' ) 
 
-let ( @: ) field  bijection = transmute field bijection
+    let ( @: ) field  bijection = transmute field bijection
 
 					
-let new_field_generic:  type ty tys brand .  (ty,tys,brand) storage -> ty ft ->  (brand getter, ty option) field_action  =
-    fun storage mod_ -> 
-    Get { witness = U.create () ; storage}
+    let new_field_generic:  type ty tys brand .  (ty,tys,brand) storage -> ty ft ->  (brand getter, ty option) field_action  =
+	fun storage mod_ -> 
+	Get { witness = U.create () ; storage}
 
-let new_field tyc= new_field_generic Imm tyc
-let new_field_mut tyc = new_field_generic Mut tyc
-	
-let create l = List.fold_left ( fun orec field_action -> orec.{field_action} ) empty l
+    let new_field tyc= new_field_generic Imm tyc
+    let new_field_mut tyc = new_field_generic Mut tyc
+					      
+    let create l = List.fold_left ( fun orec field_action -> orec.{field_action} ) empty l
 
   end

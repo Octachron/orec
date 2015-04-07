@@ -20,7 +20,7 @@ type ('ty, 'fy, 'brand) storage =
   | Mut : ('a, 'a ref, mut) storage
 
 (** Bijection type and composition *)			    
-module Aux_types :
+module Bijection :
 sig
   (** Bijection record *)
   type ('a, 'b) bijection = { to_ : 'a -> 'b; from : 'b -> 'a; }
@@ -39,7 +39,7 @@ type ('ty, 'tys, 'brand) key = {
 (** Open record namespace functor *)
 module type Namespace_sig =
   sig
-    include (module type of Aux_types) 
+    include (module type of Bijection) 
     (** The type of record within the namespace *)
     type t
 
@@ -50,13 +50,12 @@ module type Namespace_sig =
     val empty : t
     (** Create a new open record from a list of field updater : [create [ field1 ^= value1; field2 ^= value2; ... ] ] *)
     val create : (const updater,t) field_action list -> t						    
-
     (** Creation of a new field *)
     val new_field : 'ty ft -> ( imm getter, 'ty option ) field_action
     val new_field_mut : 'ty ft -> (mut getter,'ty option) field_action
 								   
     (** Transform a field getter into a field updater *)
-    val ( ^= ) : ( 'brand getter, 'ty option ) field_action -> 'ty -> ('a updater,t) field_action
+    val ( ^= ) : ( 'brand getter, 'ty option ) field_action -> 'ty -> ('const updater,t) field_action
     (** Field map: [ record.{field |= f } ] is equivalent to record.{ field ^= f record.{field} } *)
     val ( |= ) : ( 'brand getter, 'ty option ) field_action -> ('ty->'ty) -> (fn updater,t) field_action
     (** Copy a mutable field *)
@@ -65,7 +64,7 @@ module type Namespace_sig =
 
     (** field access : [ record.{field} ] returns the value of the field, [record.{field ^= value}] returns a functional update of record *)
     val get : t -> ('kind,'ret) field_action -> 'ret [@@indexop]
-    (** The expressions record.{ field ^= value, field2 ^= value2, ...  } are shortcuts for record.{ field ^= value }.{ field2 ^= value2 }... *)
+    (** The expressions record.{ field ^= value, field2 ^= value2, field3 |= f ...  } are shortcuts for record.{ field ^= value }.{ field2 ^= value2 }.{field3 |= f }... *)
     val get_2 : t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> t [@@indexop]
     val get_3 : t -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> (lt_fn updater,t) field_action -> t [@@indexop]
     val get_n : t -> (lt_fn updater,t) field_action array -> t [@@indexop]
