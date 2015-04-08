@@ -1,6 +1,4 @@
 
-(** Type carrier for field creation *)
-type 'a ft = T
 
 (** Type brand for getter field *)
 type mut = Nil_mutable
@@ -32,7 +30,7 @@ sig
 end
 (** Key storage type *)
 type ('ty, 'tys, 'brand) key = {
-  witness : 'tys Univ_gadt.witness;
+  witness : 'tys Orec_univ_gadt.witness;
   storage : ('ty, 'tys, 'brand) storage;
 }
 
@@ -46,13 +44,17 @@ module type Namespace_sig =
     (** The type of a field getter or updater *) 
     type ('info,'return_type) field_action
 
+    (** Alias for the type of immutable and muttable getter fields *)
+    type 'a field = (imm getter,'a option) field_action				
+    type 'a mut_field = (mut getter,'a option) field_action	  
+
     (** The empty record *) 
     val empty : t
     (** Create a new open record from a list of field updater : [create [ field1 ^= value1; field2 ^= value2; ... ] ] *)
     val create : (const updater,t) field_action list -> t						    
     (** Creation of a new field *)
-    val new_field : 'ty ft -> ( imm getter, 'ty option ) field_action
-    val new_field_mut : 'ty ft -> (mut getter,'ty option) field_action
+    val new_field : unit -> 'ty field
+    val new_field_mut : unit -> 'ty mut_field
 								   
     (** Transform a field getter into a field updater *)
     val ( ^= ) : ( 'brand getter, 'ty option ) field_action -> 'ty -> ('const updater,t) field_action

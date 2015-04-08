@@ -1,4 +1,4 @@
-type elt =  Univ.t
+type elt =  Orec_univ.t
 	      
 module Id ()=struct
 module type Base = sig type p end
@@ -33,7 +33,7 @@ module Property(T:Base)=
   struct
     type p=T.p
     let id= incr id; !id
-    let (inj, proj) : (p -> Univ.t) * (Univ.t->p) = Univ.specialize()  
+    let (inj, proj) : (p -> Orec_univ.t) * (Orec_univ.t->p) = Orec_univ.specialize()  
     let s value orec= M.add id (inj value) orec
     let set orec value = s value orec
     let get_e orec = proj @@ M.find id orec
@@ -82,7 +82,7 @@ module Named ()=struct
       
   module Property(T:Base)=struct
     include(T)
-    let (inj, proj) : (p->Univ.t) * (Univ.t -> p) = Univ.specialize()  
+    let (inj, proj) : (p->Orec_univ.t) * (Orec_univ.t -> p) = Orec_univ.specialize()  
     let s value orec= N.add name (inj value) orec
     let set orec value = s value orec
     let get_e orec = proj @@ N.find name orec
@@ -131,7 +131,7 @@ module Repr ()=struct
 
   module Property(T:Base)=struct
     include T
-    let inj, proj = Univ.specialize()  
+    let inj, proj = Orec_univ.specialize()  
     let s value orec= N.add name (inj value) orec
     let set orec value = s value orec
     let get orec = proj @@ N.find name orec

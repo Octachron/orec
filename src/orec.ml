@@ -1,9 +1,6 @@
-module U = Univ_gadt
+module U = Orec_univ_gadt
 type 'a witness = 'a U.witness
 type elt = U.binding
-
-(* type carrier: used later for avoiding weakly polymorphic type witness *) 
-type 'a ft = T
 
 (* Phantom type brand for immutable and mutable field *)	       
 type mut = Nil_mutable
@@ -62,8 +59,14 @@ module type Namespace_sig = sig
     (** The type of record within the namespace *)
     type t
 
+
+
     (** The type of a field getter or updater *) 
     type ('info,'return_type) field_action
+
+    (** Alias for the type of immutable fields *)
+    type 'a field = (imm getter,'a option) field_action				
+    type 'a mut_field = (mut getter,'a option) field_action	       
 
     (** The empty record *) 
     val empty : t
@@ -71,8 +74,8 @@ module type Namespace_sig = sig
     val create : (const updater,t) field_action list -> t						    
 
     (** Creation of a new field *)
-    val new_field : 'ty ft -> ( imm getter, 'ty option ) field_action
-    val new_field_mut : 'ty ft -> (mut getter,'ty option) field_action
+    val new_field : unit -> 'ty field 
+    val new_field_mut : unit -> 'ty mut_field
 								   
     (** Transform a field getter into a field updater *)
     val ( ^= ) : ( 'brand getter, 'ty option ) field_action -> 'ty -> ('a updater,t) field_action
@@ -130,6 +133,9 @@ module Namespace() : Namespace_sig =
       | Update : ('ty,'tys,'brand) key * 'ty -> ('kind updater, t) field_action
       | Fn_update: ('ty,'tys,'brand) key * ('ty->'ty) -> (fn updater, t) field_action
 
+    type 'ty field = (imm getter,'ty option) field_action
+    type 'ty mut_field = (mut getter, 'ty option) field_action
+
     let (^=) : type ty brand ret . ( brand getter, ty option ) field_action -> ty -> ('a updater , t ) field_action =
 	fun field_action x -> match field_action with
 			      | Get key -> Update(key,x)
@@ -140,10 +146,10 @@ module Namespace() : Namespace_sig =
 			      | Get key -> Fn_update(key,f)
 			      | Indirect_get (key,bij) -> Fn_update(key,fun x ->   x |> bij.to_ |> f |>  bij.from )   
 
-    (* performs a copy of a mutable field. Copying an immutable would be pointless *)
+    (* Perform a copy of a mutable field. Copying an immutable would be pointless *)
     let copy field = field |= (fun x -> x)
 		
-    (* Goes from the stored type 'tys to the core type *)  
+    (* Convert from the stored type 'tys to the core type 'ty *)  
     let deref: type ty tys brand. (ty,tys,brand) storage -> tys -> ty = fun storage val_ ->
       match storage with
       | Mut -> !val_
@@ -200,12 +206,12 @@ module Namespace() : Namespace_sig =
     let ( @: ) field  bijection = transmute field bijection
 
 					
-    let new_field_generic:  type ty tys brand .  (ty,tys,brand) storage -> ty ft ->  (brand getter, ty option) field_action  =
-	fun storage mod_ -> 
+    let new_field_generic:  type ty tys brand .  (ty,tys,brand) storage ->  (brand getter, ty option) field_action  =
+	fun storage -> 
 	Get { witness = U.create () ; storage}
 
-    let new_field tyc= new_field_generic Imm tyc
-    let new_field_mut tyc = new_field_generic Mut tyc
+    let new_field ()= new_field_generic Imm
+    let new_field_mut () = new_field_generic Mut
 					      
     let create l = List.fold_left ( fun orec field_action -> orec.{field_action} ) empty l
 
