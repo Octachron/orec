@@ -4,8 +4,9 @@
 
 let () = 
   Pkg.describe "orec" ~builder:`OCamlbuild [
-    Pkg.lib "pkg/META";
-    Pkg.lib ~exts:Exts.module_library "src/orec";
-    Pkg.lib ~exts:Exts.module_library "src/orec_modules";
-    Pkg.doc "Readme.md"; 
+		 Pkg.lib "pkg/META";
+		 Pkg.lib ~exts:Exts.module_library "src/orec";
+		 Pkg.lib ~exts:Exts.module_library "src/orec_modules";
+		 Pkg.lib ~exts:Exts.library "src/orec_lib";
+		 Pkg.doc "Readme.md"; 
 ]

@@ -28,7 +28,7 @@ module type Exts = sig
   (** [interface_opt] is [".cmx" :: interface] *)
 
   val library : string list
-  (** [library] is [[".cma"; ".cmxa"; ".cmxs"; ".a"]] *)
+  (** [library] is [[".cma"; ".cmxa"; ".cmxs" "a" ]] *)
 
   val module_library : string list
   (** [module_library] is [(interface_opt @ library)]. *)
@@ -144,7 +144,7 @@ end
 module Exts : Exts = struct
   let interface = [".mli"; ".cmi"; ".cmti"]
   let interface_opt = ".cmx" :: interface
-  let library = [".cma"; ".cmxa"; ".cmxs"; ".a"]
+  let library = [".cma"; ".cmxa"; ".cmxs"]
   let module_library = (interface_opt @ library)
 end
 
