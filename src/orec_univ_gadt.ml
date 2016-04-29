@@ -14,6 +14,8 @@ type 'a type_carrier = T
 (* Type witness for type equality *)
 type 'a witness = ( module Id with type t = 'a )
 
+type key = extension_constructor
+
 type (_,_) eq = Proof : ('a,'a) eq
 
 (* Test type equality and, if true, return a proof *)
@@ -30,7 +32,7 @@ let ( =! ) (type u) (type v) : u witness -> v witness -> (u,v) eq =
   | _ -> raise Type_non_equal
 
 (* Compute the term identifier associated to a type level identifier *)
-let id (type a) (module M : Id with type t = a ) = Obj.extension_id M.Id (* Obj.extension? Brittle or not? *)
+let id (type a) (module M : Id with type t = a ) = [%extension_constructor M.Id] (* Obj.extension? Brittle or not? *)
 
 (* Binding: pair an 'a value with an 'a witness and hides the type 'a *)
 type binding = B : 'a witness * 'a -> binding

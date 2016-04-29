@@ -4,8 +4,11 @@ type 'a type_carrier = T
 (** Unique type identifier with equality*)
 type 'a witness
 
+(** key type *)
+type key
+
 (** Compute the value-level identifier associated to a type-level identifier*)
-val id : 'a witness -> int
+val id : 'a witness -> key
 
 (** Bind together an 'a type-identifier with an 'a value *)
 type binding = B : 'a witness * 'a -> binding

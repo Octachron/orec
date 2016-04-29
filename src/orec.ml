@@ -76,8 +76,8 @@ module Namespace() =
     (* Underlying type of the open record *)
     module M= Map.Make(
           struct
-            type t=int
-            let compare:int -> int -> int = compare
+            type t=U.key
+            let compare:U.key-> U.key-> int = compare
           end)
 
 
