@@ -1,4 +1,0 @@
-true: bin_annot
-<src/orec.ml{,i}>: package(ppx_indexop)
-
-

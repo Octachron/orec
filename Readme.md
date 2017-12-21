@@ -21,63 +21,59 @@ Creating a new record is as simple as
 let r = create [ age ^= 10; position ^= 100. ].
 ```
 
-Fields can then be accessed using the `record.{field}` syntax
+Fields can then be accessed using the `record.%{field}` syntax
 ```Ocaml
-assert ( r.{age} = Some 10 );;
+assert ( r.%{age} = Some 10 );;
 ```
 Unfortunately, the fields presents in `r` are not tracked by the type system.
-For a field of type `'a field`,  `record.{field}` returns an `'a option `.
+For a field of type `'a field`,  `record.%{field}` returns an `'a option `.
 
-Functional update can be performed using `record.{ field ^= value }`
+Functional update can be performed using `record.%{ field ^= value }`
 ```Ocaml
-let r2 = r.{age ^= 20}
-assert ( r.{age} = Some 10 && r2.{age} = Some 20 && r2.{position} = r.{position} );;
-```
-Multiple update can be performed at the same time
-```Ocaml
-let r2_bis = r.{ age ^= 20; position ^= 1. }
-assert ( r2_bis.{age} = Some 20 && r2_bis.{position} = Some 1. );;
+let r2 = r.%{age ^= 20}
+assert ( r.%{age} = Some 10 && r2.%{age} = Some 20 &&
+r2.%{position} = r.%{position} );;
 ```
 
 Note that field can still be added after creation
 ```Ocaml
 let tags : 'string list field = new_field()
-let r = r.{ tags ^= ["a tag"] }
+let r = r.%{ tags ^= ["a tag"] }
 ```
 
-Assignment for mutable field follows the natural syntax `r.{field}<- value`
+Assignment for mutable field follows the natural syntax `r.%{field}<- value`
 ```Ocaml
-let () = r.{position} <- 20.
-assert( r.{position} = Some 20. && r2.{position} = Some 20. );;
+let () = r.%{position} <- 20.
+assert( r.%{position} = Some 20. && r2.%{position} = Some 20. );;
 ```
 
 Mutable fields are shared during functional update. To avoid this behavior, copy the field
 ```Ocaml
-let r3= r.{copy position}
-let () = r3.{position} <- 10.
-assert ( r2.{position} <> Some 10. );;
+let r3= r.%{copy position}
+let () = r3.%{position} <- 10.
+assert ( r2.%{position} <> Some 10. );;
 ```
 It is also possible to delete a field,
 ```Ocaml
-let r4= r.{delete position}
-assert ( r4.{position} = None )
+let r4= r.%{delete position}
+assert ( r4.%{position} = None )
 ```
 or apply a transformation to a field, if the field exists:
 ```Ocaml
 let f age = age + 1
-let r5= r.{ fmap f age }
-let r5= r.{ age |= f }
-assert ( r5.{age} = Some 40 )
+let r5= r.%{ fmap f age }
+let r5= r.%{ age |= f }
+assert ( r5.%{age} = Some 40 )
 ```
 All these different field updates can be potentially mixed together
 ```Ocaml
-let r6 = r.{ age |= f; position ^= 5.; delete tags }
+let r6 = r.%{ age |= f; position ^= 5.; delete tags }
 ```
 
 Given a bijection between type `'a` and `'b`, it is possible to transmute an `'a field` to an `'b field`
 ```Ocaml
 let age_str: string field = transmute age {to_ = string_of_int; from = int_of_string }
-assert (r.{age_str} = "10" );;
+assert (r.%{age_str} = "10" );;
 ```
 
 In some cases, accessing fields through an option type might be unpractical,
@@ -89,7 +85,7 @@ let error : unit exn_field = new_field_exn ()
 let no_one = create [ name ^= "Ulysse" ]
 assert( no_one.name = "Ulysse" )
 let raise_exception =
-    try no_one.{error} with Not_found -> ()
+    try no_one.%{error} with Not_found -> ()
 ```
 An exception-based field `'a exn_field` returns directly the core type `'a` of the field if
 the field is present and will raise a `Not_found` exception otherwise. It is important to
@@ -99,4 +95,3 @@ only if the underlying field is present in the record.
 
 It is possible to switch from an option-based field to an exception-based by using
 the `tranmute_exn` function.
-

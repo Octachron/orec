@@ -1,8 +1,0 @@
-version = "0.6"
-description = "Open records implemented as map over universal type"
-requires = "ppx_indexop"
-archive(byte) = "orec_lib.cma"
-archive(byte, plugin) = "orec_lib.cma"
-archive(native) = "orec_lib.cmxa"
-archive(native, plugin) = "orec_lib.cmxs"
-exists_if = "orec_lib.cma"

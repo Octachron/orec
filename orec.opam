@@ -1,0 +1,16 @@
+name: "orec"
+version:"0.9"
+opam-version: "1.2"
+maintainer: "octachron@polychoron.fr"
+authors: "octachron@polychoron.fr"
+dev-repo: "git+https://github.com/Octachron/orec"
+homepage: "https://github.com/Octachron/orec"
+bug-reports: "https://github.com/Octachron/orec/issues"
+
+build:[
+ ["jbuilder" "build" "-p" name "-j" jobs]
+]
+
+
+depends: [
+  "jbuilder" {build}]
