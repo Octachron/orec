@@ -1,3 +1,4 @@
+
 module U = Univ
 type 'a witness = 'a U.witness
 type elt = U.binding
@@ -14,18 +15,20 @@ type elt = U.binding
 (* Key type :
  * 'ty the type of the key
  * 'tys the type of the stored value
- * 'brand : storage brand either imm or mut
+ * 'mut : storage brand either imm or mut
 *)
 
 open Type_data
-type ('ty,'tys, 'tya, 'brand) key = {
+type 'data key = {
   witness : 'tys witness;
-  storage: ('ty,'tys,'brand) storage;
+  storage: ('ty,'tys,'m) storage;
   access: ('ty,'tya) access
 }
+  constraint 'data = <mut:'m; typ: 'ty; access:'tya; stored:'tys>
+
 
 (* Namespace() generates a new module with abstract open record  *)
-module Namespace() =
+module Make() =
   struct
     (* Including bijection function to lighten use of the namespace *)
     include(Bijection)
@@ -63,27 +66,29 @@ module Namespace() =
     let delete_key key orec= M.remove (U.id key.witness) orec
 
     (* Field action : either  getter or updater associated to a given key  *)
-    type ('info , 'ret)  field_action =
+    type 'info field_action =
       | Get:
-          ('ty,'tys,'tya, 'brand ) key -> ( ('ty,'brand) getter, 'tya ) field_action
+          <typ: 'ty; access:'tya; mut:'m; .. > key ->
+        ( ('ty,'m) getter * 'tya ) field_action
       | Indirect_get :
-          ('ty,'tys,'tya,'brand) key * ('ty, 'ty2) bijection * ('ty2,'tya2) access
-        -> ( ('ty2,'brand) getter, 'tya2 ) field_action
+           <typ: 'ty; mut:'m;.. > key * ('ty, 'ty2) bijection * ('ty2,'tya2) access
+        -> ( ('ty2,'m) getter * 'tya2 ) field_action
       | Update:
-          ('ty,'tys,'tya,'brand) key * 'ty -> ('a const updater, t) field_action
+          <typ: 'ty; .. > key * 'ty -> ('a const updater * t) field_action
       | Fn_update:
-          ('ty,'tys,'tya, 'brand) key * ('ty->'ty) -> ('a fn updater, t) field_action
+          <typ: 'ty; .. > key * ('ty->'ty) -> ('a fn updater * t) field_action
       | Delete:
-          ('ty,'tys,'tya,'brand) key -> ('a del updater, t) field_action
+          < .. > key -> ('a del updater * t) field_action
+
 
     (** Alias for the type of fields *)
-    type ('a,'mut,'res) get = ( ('a,'mut) getter, 'res) field_action
-    type 'a field = ('a, imm, 'a option) get
-    type 'a mut_field = ('a, mut, 'a option) get
-    type 'a exn_field= ('a, imm, 'a) get
-    type 'a exn_mut_field = ('a, mut, 'a) get
-
-    type ('param,'t) update = ('param updater, 't) field_action
+    type 'info get = ( ('a,'mut) getter * 'res) field_action
+      constraint 'info = <x:'a; mut:'mut; ret:'res>
+    type 'a field =  <x:'a; mut:imm; ret:'a option> get
+    type 'a mut_field =  <x:'a; mut:mut; ret:'a option> get
+    type 'a exn_field=  <x:'a; mut:imm; ret:'a> get
+    type 'a exn_mut_field =  <x:'a; mut:mut; ret:'a> get
+    type ('param,'t) update = ('param updater * 't) field_action
 
     (** Creation of a new field *)
     let new_field_generic =
@@ -96,7 +101,8 @@ module Namespace() =
     let new_field_exn_mut () = new_field_generic Mut Exn
 
     (** Transform a field getter into a field updater *)
-    let put : type ty brand ret. (ty,brand,ret) get -> ty -> ('a const, t) update =
+    let put : type ty m ret.
+      <x:ty; mut:m; ret: ret> get -> ty -> ('a const, t) update =
     fun field_action x -> match field_action with
                   | Get key -> Update(key,x)
                   | Indirect_get (key,bij,access) -> Update(key, bij.from x)
@@ -105,8 +111,8 @@ module Namespace() =
 
     (** Field fmap: [ record.{field |= f } ] is equivalent to
         [record.{ field ^= fmap f record.{field} }], if the field exists *)
-    let fmap : type ty brand ret.
-      (ty,brand,ret) get -> (ty->ty) -> ('a fn,t) update =
+    let fmap : type ty m ret.
+       <x:ty; mut:m; ret: ret> get  -> (ty->ty) -> ('a fn,t) update =
     fun field_action f -> match field_action with
                   | Get key -> Fn_update(key,f)
                   | Indirect_get (key,bij,access) ->
@@ -138,7 +144,7 @@ module Namespace() =
 
     let find_key_exn key orec = find_exn key.witness orec |> deref key.storage
 
-    let find_key: type ty tya. (ty,'tys,tya,'brand) key -> t -> tya  =
+    let find_key: type ty tya. <typ:ty; access:tya; .. > key -> t -> tya  =
       fun key orec -> match key.access with
       | Opt ->
      begin
@@ -147,7 +153,7 @@ module Namespace() =
       | Exn -> find_key_exn key orec
 
     let find_key_with:
-      type ty2 tya2. (ty2,tya2) access -> ('ty,'tys,'tya,'brand) key
+      type ty2 tya2. (ty2,tya2) access -> <typ:'ty; .. > key
       -> ('ty->ty2) -> t -> tya2 =
       fun access key f orec -> match access with
       | Exn -> find_key_exn key orec |> f
@@ -164,7 +170,7 @@ module Namespace() =
       | exception Not_found -> orec
 
     (* get, update and set functions *)
-    let get : ('ty,'brand,'tya) get -> t -> 'tya = fun field orec ->
+    let get : <ret:'tya; .. > get -> t -> 'tya = fun field orec ->
       match field with
       | Get key -> find_key key orec
       | Indirect_get (key, bijection,access) ->
@@ -176,7 +182,7 @@ module Namespace() =
       | Fn_update(key,f) -> update_key key f orec
       | Delete key -> delete_key key orec
 
-    let  set : type ty. (ty,mut,'ty_access) get -> ty -> t -> unit =
+    let  set : type ty r. <x:ty; mut:mut; ret:r > get -> ty -> t -> unit =
       fun field x orec ->
       match field with
       | Get {witness; storage=Mut } ->
@@ -192,7 +198,7 @@ module Namespace() =
         - [ record.{field |= f} is equivalent to record.{ field ^= f record.{field} }
         - [ record.{delete field} returns an updated version of record
         without this field  *)
-    let (.%{}): type kind ret. t -> (kind,ret) field_action -> ret = fun orec ->
+    let (.%{}): type kind ret. t -> (kind * ret) field_action -> ret = fun orec ->
       function
       | Get key ->  find_key key orec
       | Indirect_get (key, bijection,access) ->
@@ -203,7 +209,7 @@ module Namespace() =
     (** The expressions record.{ field ^= value, field2 ^= value2, ...  } are
         shortcuts for record.{ field ^= value }.{ field2 ^= value2 }... *)
     let (.%{}<-) : type ty.
-      t -> (ty,mut,'ty_access) get -> ty -> unit =
+      t -> <x:ty; mut:mut; ..> get -> ty -> unit =
       fun orec field x -> set field x orec
 
     (** Create a new open record from a list of field updater :
@@ -216,8 +222,8 @@ module Namespace() =
         the provided access type *)
     let transmute_gen: type ty brand.
       ('ty2,'ty2a) access ->
-      (ty,brand,'ty_access) get -> (ty,'ty2) bijection ->
-      ('ty2, brand, 'ty2a) get =
+       <x:ty; mut:'mut; ..> get -> (ty,'ty2) bijection ->
+        <x:'ty2; mut:'mut; ret: 'ty2a> get =
       fun access action_field bijection ->
       match action_field with
       | Get witness -> Indirect_get (witness,bijection,access)
