@@ -77,6 +77,9 @@ module Make() =
           <typ: 'ty; .. > key * 'ty -> ('a const updater * t) field_action
       | Fn_update:
           <typ: 'ty; .. > key * ('ty->'ty) -> ('a fn updater * t) field_action
+      | And :
+          ('any updater * t) field_action * ('any updater * t) field_action ->
+        ('any updater * t) field_action
       | Delete:
           < .. > key -> ('a del updater * t) field_action
 
@@ -176,11 +179,16 @@ module Make() =
       | Indirect_get (key, bijection,access) ->
         find_key_with access key bijection.to_ orec
 
-    let update :(any, t) update -> t -> t = fun field_action orec ->
+    let rec update :(any, t) update -> t -> t = fun field_action orec ->
       match field_action with
       | Update (key,x) -> add_key key x orec
       | Fn_update(key,f) -> update_key key f orec
       | Delete key -> delete_key key orec
+      | And (l, r) ->
+        update r (update l orec)
+
+    let and_then l r = And(l,r)
+    let (&) = and_then
 
     let  set : type ty r. <x:ty; mut:mut; ret:r > get -> ty -> t -> unit =
       fun field x orec ->
@@ -198,13 +206,16 @@ module Make() =
         - [ record.{field |= f} is equivalent to record.{ field ^= f record.{field} }
         - [ record.{delete field} returns an updated version of record
         without this field  *)
-    let (.%{}): type kind ret. t -> (kind * ret) field_action -> ret = fun orec ->
+    let rec (.%{}): type kind ret.
+      t -> (kind * ret) field_action -> ret =
+      fun orec ->
       function
       | Get key ->  find_key key orec
       | Indirect_get (key, bijection,access) ->
         find_key_with access key bijection.to_ orec
       | Update (key,x) -> add_key key x orec
       | Fn_update(key,f) -> update_key key f orec
+      | And(l,r) -> orec.%{l}.%{r}
       | Delete key -> delete_key key orec
     (** The expressions record.{ field ^= value, field2 ^= value2, ...  } are
         shortcuts for record.{ field ^= value }.{ field2 ^= value2 }... *)

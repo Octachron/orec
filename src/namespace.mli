@@ -66,6 +66,14 @@ module Make:
     val ( |= ) :
       <x:'ty; .. > get -> ('ty->'ty) -> ('a fn, t) update
 
+
+    (** Field combinator
+        [ orec.%{ x & y }] is [ orec.%{x}.%{y}]
+    *)
+
+    val (&): (any, t) update -> (any, t) update -> (any, t) update
+    val and_then: (any, t) update -> (any, t) update -> (any, t) update
+
     (** Copy a mutable field *)
     val copy: <x:'ty; mut:mut; .. > get  -> ('a fn, t) update
 
