@@ -1,11 +1,19 @@
 
 Orec provides an implementation of "open records" as an interface over universal map.
-To start using this library first defines a namespace for the "open record" fields
+
+To start using this library, the first step is to chose which namespace to use.
+The default namespace can be used with
 
 ```Ocaml
-module M = Orec.Namespace.Make()
-(* module M provides a namespace for record field *)
-open M
+(* Use the default namespace for record field *)
+open Orec.Default
+```
+
+or it is possible to define a new namespace with
+
+```OCaml
+module N = Orec.Namespace.Make()
+open N
 ```
 
 We can then create dynamically a new field
@@ -66,9 +74,10 @@ let r5= r.%{ fmap f age }
 let r5= r.%{ age |= f }
 assert ( r5.%{age} = Some 40 )
 ```
-All these different field updates can be potentially mixed together
+All these different field updates can be potentially mixed together with the
+`&` operator
 ```Ocaml
-let r6 = r.%{ age |= f; position ^= 5.; delete tags }
+let r6 = r.%{ age |= f & position ^= 5. & delete tags }
 ```
 
 Given a bijection between type `'a` and `'b`, it is possible to transmute an `'a field` to an `'b field`
@@ -79,7 +88,8 @@ assert (r.%{age_str} = "10" );;
 
 In some cases, accessing fields through an option type might be unpractical,
 for instance, external invariants might enforce that a given field is always present.
-In these situations, it is possible to use exception based fields rather than option based field
+In these situations, it is possible to use exception based fields rather than
+option based field
 ```Ocaml
 let name : int exn_field = new_field_exn ()
 let error : unit exn_field = new_field_exn ()
@@ -88,10 +98,10 @@ assert( no_one.name = "Ulysse" )
 let raise_exception =
     try no_one.%{error} with Not_found -> ()
 ```
-An exception-based field `'a exn_field` returns directly the core type `'a` of the field if
-the field is present and will raise a `Not_found` exception otherwise. It is important to
-note that the behavior of all functions and operators defined in the `Orec` is independent
-from the access type. In particular, the `fmap` function always update the record if and
+An exception-based field `'a exn_field` returns directly the core type `'a` of
+the field if the field is present and will raise a `Not_found` exception otherwise.
+The behavior of all functions and operators defined in `orec` is independent from
+the access mode. In particular, the `fmap` function always update the record if and
 only if the underlying field is present in the record.
 
 It is possible to switch from an option-based field to an exception-based by using

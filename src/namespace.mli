@@ -1,15 +1,12 @@
+(** Creation of new namespace for open record fields *)
 
 
 (** Key storage type *)
 type 'data key
   constraint 'data = <mut:'m; typ: 'ty; access:'tya; stored:'tys>
 
-
-open Type_data
-
-module Make:
-  functor () ->
-  sig
+module type S =    sig
+  open Type_data
     include Bijection.S
 
     (** The type of record within the namespace *)
@@ -128,3 +125,6 @@ module Make:
       -> < x:'b; mut:'m; ret:'b> get
 
   end
+
+(** Create a new namespace *)
+module Make: functor () -> S

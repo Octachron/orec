@@ -3,3 +3,6 @@ all:
 clean:
 	jbuilder clean
 
+doc:
+	jbuilder build @doc
+
