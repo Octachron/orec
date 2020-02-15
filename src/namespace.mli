@@ -15,9 +15,10 @@ module type S =    sig
     (** The type of a field getter or updater *)
     type 'info field_action
 
-    (** Aliases for the type of fields *)
+    (** Aliases for the field types *)
     type 'info get = ( ('a,'mut) getter * 'res) field_action
         constraint 'info = <x:'a; mut:'mut; ret:'res>
+
     type 'a field =  <x:'a; mut:imm; ret:'a option> get
     type 'a mut_field =  <x:'a; mut:mut; ret:'a option> get
     type 'a exn_field=  <x:'a; mut:imm; ret:'a> get
@@ -36,7 +37,7 @@ module type S =    sig
     val create: (only const, t) update list -> t
 
     (** Creation of a new fields.
-        Note that the type 'ty would be  weakly polymorphic once the field created.
+        Note that the type 'ty is weakly polymorphic once the field created.
         However, in this specific use case, it seems reasonable to annotate the
         field type by using one of the field type aliases.
     *)
@@ -46,16 +47,16 @@ module type S =    sig
     val new_field_exn_mut: unit -> 'ty exn_mut_field
 
     (** Constant field updater:
-        [record.{ field ^= v }] sets the value of [field] to [v]
-        and is equivalent to [record.{ put field v }] *)
+        [record.%{ field ^= v }] sets the value of [field] to [v]
+        and is equivalent to [record.%{ put field v }] *)
     val put:
       <x:'ty; .. > get -> 'ty -> (_ const, t) update
     val ( ^= ):
      <x:'ty; .. > get -> 'ty -> (_ const, t) update
 
     (** Field map:
-        [ record.{field |= f } ] or [record.{ fmap field f }] are equivalent to
-        [record.{ field ^= fmap f record.{field} }] if the field exists, and do
+        [ record.%{field |= f } ] or [record.%{ fmap field f }] are equivalent to
+        [record.%{ field ^= f record.%{field} }] if the field exists, and do
         nothing otherwise
     *)
     val fmap:
@@ -83,6 +84,7 @@ module type S =    sig
     val set: <x:'ty; mut:mut; .. > get -> 'ty -> t -> unit
 
     (** Operator version of get+update and set *)
+
     (** [(.%{} )] operator:
      - [ record.%{field} ] returns the value of the field
      - [record.%{field ^= value}] returns a functional update of record
@@ -93,13 +95,8 @@ module type S =    sig
     val (.%{}): t -> (_ * 'ret) field_action -> 'ret
     val (.%{}<-):  t -> < x:'ty; mut:mut; .. > get -> 'ty -> unit
 
-    (** non-operator version of get,set and update *)
-    val get: < ret:'ret; .. > get -> t -> 'ret
-    val update: ( any , t) update -> t -> t
-    val set: <x:'ty; mut:mut; .. > get -> 'ty -> t -> unit
-
     (** Use the type equality implied by the bijection ['a⟺'b] to create
-        a new ['b] field getter from a ['a] field getter.
+        a new ['b] field getter from an ['a] field getter.
         The new field getter uses option access *)
     val transmute :
       (< x:'a; mut:'m; ..> as 'x)  get

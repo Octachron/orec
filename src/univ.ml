@@ -25,12 +25,6 @@ let ( =? ) (type u) (type v) : u witness -> v witness -> (u,v) eq option =
   | V.Id -> Some Proof
   | _ -> None
 
-let ( =! ) (type u) (type v) : u witness -> v witness -> (u,v) eq =
-  fun (module U) (module V) ->
-  match U.Id with
-  | V.Id -> Proof
-  | _ -> raise Type_non_equal
-
 (* Compute the term identifier associated to a type level identifier *)
 let id (type a) (module M : Id with type t = a ) = [%extension_constructor M.Id] (* Obj.extension? Brittle or not? *)
 

@@ -2,15 +2,6 @@
 module U = Univ
 type 'a witness = 'a U.witness
 type elt = U.binding
-(* Utility option monad functions *)
-    let ( |>? ) x f = match x with
-      | Some x -> Some ( f x )
-      | None -> None
-
-    let ( >>? ) x f = match x with
-      | Some x -> f x
-      | None -> ()
-
 
 (* Key type :
  * 'ty the type of the key
@@ -104,6 +95,7 @@ module type S = sig
     val set: <x:'ty; mut:mut; .. > get -> 'ty -> t -> unit
 
     (** Operator version of get+update and set *)
+
     (** [(.%{} )] operator:
      - [ record.%{field} ] returns the value of the field
      - [record.%{field ^= value}] returns a functional update of record
@@ -113,11 +105,6 @@ module type S = sig
         without this field  *)
     val (.%{}): t -> (_ * 'ret) field_action -> 'ret
     val (.%{}<-):  t -> < x:'ty; mut:mut; .. > get -> 'ty -> unit
-
-    (** non-operator version of get,set and update *)
-    val get: < ret:'ret; .. > get -> t -> 'ret
-    val update: ( any , t) update -> t -> t
-    val set: <x:'ty; mut:mut; .. > get -> 'ty -> t -> unit
 
     (** Use the type equality implied by the bijection ['a⟺'b] to create
         a new ['b] field getter from a ['a] field getter.
@@ -172,18 +159,6 @@ module Make(): S =
     let find_exn witness orec =
       M.find (U.id witness) orec |> U.extract_exn witness
 
-    let find witness orec = match find_exn witness orec with
-      | x -> Some x
-      | exception Not_found -> None
-
-    (* find the value associated with the key witness,
-       choose the error handling in function of the access argument *)
-    let find_gen: type ty tya. (ty,tya) access -> ty witness-> t -> tya  =
-      fun access witness orec ->
-      match access with
-      | Exn -> find_exn witness orec
-      | Opt -> find witness orec
-
     let add key val_ orec = M.add (U.id key) (U.B (key,val_) ) orec
     let delete_key key orec= M.remove (U.id key.witness) orec
 
@@ -230,7 +205,7 @@ module Make(): S =
       <x:ty; mut:m; ret: ret> get -> ty -> ('a const, t) update =
     fun field_action x -> match field_action with
                   | Get key -> Update(key,x)
-                  | Indirect_get (key,bij,access) -> Update(key, bij.from x)
+                  | Indirect_get (key,bij,_access) -> Update(key, bij.from x)
 
     let ( ^= ) field x = put field x
 
@@ -240,7 +215,7 @@ module Make(): S =
        <x:ty; mut:m; ret: ret> get  -> (ty->ty) -> ('a fn,t) update =
     fun field_action f -> match field_action with
                   | Get key -> Fn_update(key,f)
-                  | Indirect_get (key,bij,access) ->
+                  | Indirect_get (key,bij,_access) ->
                     Fn_update(key,fun x ->   x |> bij.to_ |> f |>  bij.from )
 
     let ( |= ) field f = fmap field f
@@ -251,7 +226,7 @@ module Make(): S =
     (* Delete a field *)
     let delete = function
       | Get key -> Delete key
-      | Indirect_get (key,bij,access) -> Delete key
+      | Indirect_get (key,_bij,_access) -> Delete key
 
     (* Convert from the stored type 'tys to the core type 'ty *)
     let deref: type ty tys brand. (ty,tys,brand) storage -> tys -> ty =
@@ -315,13 +290,14 @@ module Make(): S =
     let  set : type ty r. <x:ty; mut:mut; ret:r > get -> ty -> t -> unit =
       fun field x orec ->
       match field with
-      | Get {witness; storage=Mut } ->
+      | Get {witness; storage=Mut; access=_ } ->
         (try find_exn witness orec := x with Not_found -> () )
-      | Indirect_get ( {witness;storage=Mut}, bijection, access ) ->
+      | Indirect_get({witness; storage=Mut; access=_ }, bijection, _access ) ->
         (try find_exn witness orec := bijection.from x with Not_found -> () )
 
 
     (** Operator version of get+update and set *)
+
     (** (.{} ) operator:
         - [ record.{field} ] returns the value of the field
         - [record.{field ^= value}] returns a functional update of record
@@ -339,6 +315,7 @@ module Make(): S =
       | Fn_update(key,f) -> update_key key f orec
       | And(l,r) -> orec.%{l}.%{r}
       | Delete key -> delete_key key orec
+
     (** The expressions record.{ field ^= value, field2 ^= value2, ...  } are
         shortcuts for record.{ field ^= value }.{ field2 ^= value2 }... *)
     let (.%{}<-) : type ty.
@@ -353,7 +330,7 @@ module Make(): S =
     (** Use the type equality implied by the bijection 'a<->'b to create a
         new ['b] field getter from a ['a] field getter. The new field getter uses
         the provided access type *)
-    let transmute_gen: type ty brand.
+    let transmute_gen: type ty.
       ('ty2,'ty2a) access ->
        <x:ty; mut:'mut; ..> get -> (ty,'ty2) bijection ->
         <x:'ty2; mut:'mut; ret: 'ty2a> get =

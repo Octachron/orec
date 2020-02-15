@@ -1,3 +1,5 @@
+{1 Orec }
+
 Orec provides an implementation of "open records" as an interface over universal map.
 To start using this library, the first step is to chose which namespace to use.
 The default namespace can be used with
@@ -117,6 +119,8 @@ the underlying field is present in the record.
 
 It is possible to switch from an option-based field to an exception-based by using
 the {!tranmute_exn} function.
-
-- {!Orec.Namespace}
+See
 - {!Orec.Default }
+- {!Orec.Namespace}
+
+for the full API
