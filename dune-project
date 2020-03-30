@@ -1,2 +1,2 @@
-(lang dune 2.1)
+(lang dune 1.0)
 (name orec)

@@ -1,5 +1,5 @@
 (library
-  (public_name orec)
+  (name orec) (public_name orec)
   (synopsis "open record implementation based on heterogeneous maps")
 )
 (documentation)

@@ -13,5 +13,5 @@ build:[
 ]
 
 depends: [
-  "dune"
+  "dune" {>= "1.0" }
   ]
